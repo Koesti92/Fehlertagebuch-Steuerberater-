@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fehlertagebuch">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Fehlertagebuch Steuerberaterprüfung</title>
+<style>
+:root{--bg:#f7f6f2;--card:#fff;--tx:#1d1d1b;--mut:#6b6a64;--bd:#e3e1d8;--ac:#1f5f4a;--on:#fff;--bad:#b3392f;--warn:#a86b0f;--ok:#2f7d4f;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171815;--card:#212220;--tx:#eeede7;--mut:#a3a199;--bd:#34352f;--ac:#5cc29b;--on:#10231b;--bad:#ee8077;--warn:#e3b05a;--ok:#6fcf93;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171815;--card:#212220;--tx:#eeede7;--mut:#a3a199;--bd:#34352f;--ac:#5cc29b;--on:#10231b;--bad:#ee8077;--warn:#e3b05a;--ok:#6fcf93;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px 14px 84px;max-width:720px;margin:0 auto}
+h1{font-size:1.25rem;margin:4px 0 2px}h2{font-size:1.05rem;margin:18px 0 8px}
+.sub{color:var(--mut);font-size:.88rem;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+label{display:block;font-size:.82rem;color:var(--mut);margin:10px 0 3px}
+input,select,textarea{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:9px 10px}
+textarea{min-height:70px;resize:vertical}
+.row{display:flex;gap:10px}.row>div{flex:1;min-width:0}
+button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:9px 14px;cursor:pointer}
+button.p{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:600}
+button.s{padding:5px 10px;font-size:.85rem}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+.nav button{flex:1;border:0;border-radius:0;background:none;padding:12px 4px;font-size:.8rem;color:var(--mut)}
+.nav button.on{color:var(--ac);font-weight:700}
+.tag{display:inline-block;font-size:.74rem;padding:2px 8px;border-radius:99px;border:1px solid var(--bd);color:var(--mut);margin:0 4px 4px 0}
+.tag.Hoch{color:var(--bad);border-color:var(--bad)}.tag.Mittel{color:var(--warn);border-color:var(--warn)}.tag.Gering{color:var(--ok);border-color:var(--ok)}
+.pts{float:right;font-weight:700;color:var(--bad)}
+.bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac)}
+.stat{display:flex;gap:8px}.stat .card{flex:1;text-align:center;margin:0}.stat b{display:block;font-size:1.4rem}.stat span{font-size:.75rem;color:var(--mut)}
+.k{font-size:.78rem;color:var(--mut);margin-top:8px}.empty{color:var(--mut);text-align:center;padding:24px 0}
+.hint{font-size:.8rem;color:var(--mut);margin-top:4px}
+</style></head><body>
+<h1>Fehlertagebuch</h1>
+<p class="sub">Steuerberaterprüfung · jeder Fehler wird erfasst, analysiert und wiederholt</p>
+<div id="v"></div>
+<div class="nav" id="nav"></div>
+<script>
+var FACH=["Verfahrensrecht & sonst. Steuerrecht","Einkommensteuer","Körperschaftsteuer","Gewerbesteuer","Umsatzsteuer","Bilanzsteuerrecht / HGB","Erbschaft-/Schenkungsteuer","Bewertungsrecht","Grunderwerbsteuer","BWL / Rechnungswesen","Berufsrecht","Sonstiges"];
+var ART=["Wissenslücke","Verständnisfehler","Anwendungs-/Subsumtionsfehler","Rechenfehler","Flüchtigkeitsfehler","Aufgabenstellung falsch gelesen","Norm/Fundstelle fehlt oder falsch","Zeitmanagement","Struktur/Gutachtenstil"];
+var SCH=["Gering","Mittel","Hoch"],INT=[1,7,21,60,120],DAY=864e5,KEY="fehlertagebuch-v1";
+var E=[],tab="neu",editId=null,flt={f:"",a:"",q:""},shown={};
+function ld(){try{E=JSON.parse(localStorage.getItem(KEY)||"[]")||[]}catch(x){E=[]}}
+function sv(){try{localStorage.setItem(KEY,JSON.stringify(E))}catch(x){}}
+function $(s){return document.querySelector(s)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function opts(a,sel,ph){return(ph?'<option value="">'+ph+'</option>':'')+a.map(function(x){return'<option'+(x===sel?' selected':'')+'>'+esc(x)+'</option>'}).join('')}
+function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fd(s){var p=(s||"").split("-");return p.length==3?p[2]+"."+p[1]+"."+p[0]:s}
+function dueAt(e){return(e.last||e.ts)+INT[Math.min(e.rc||0,4)]*DAY}
+function isDue(e){return(e.rc||0)<5&&Date.now()>=dueAt(e)}
+function nav(){var t=[["neu","＋ Neu"],["list","Tagebuch"],["rep","Wiederholen ("+E.filter(isDue).length+")"],["auswert","Auswertung"]];
+$("#nav").innerHTML=t.map(function(x){return'<button class="'+(tab==x[0]?"on":"")+'" onclick="go(\''+x[0]+'\')">'+x[1]+'</button>'}).join('')}
+function go(t){tab=t;if(t!="neu")editId=null;draw()}
+function draw(){nav();$("#v").innerHTML={neu:vNeu,list:vList,rep:vRep,auswert:vAus}[tab]();window.scrollTo(0,0)}
+function vNeu(){var e=E.filter(function(x){return x.id==editId})[0]||{date:today(),src:"Probeklausur",fach:"",art:"",sch:"Mittel",pts:"",max:""};
+return'<div class="card"><b>'+(editId?"Eintrag bearbeiten":"Neuen Fehler erfassen")+'</b>'+
+'<div class="row"><div><label>Datum</label><input type="date" id="date" value="'+esc(e.date)+'"></div><div><label>Quelle</label><select id="src">'+opts(["Probeklausur","Lehrbrief (LB)","Fallstudie (FS)","Übungsklausur","Sonstiges"],e.src)+'</select></div></div>'+
+'<label>Bezeichnung (z. B. Klausur 1, Aufgabe 3 / LB 05 – …)</label><input id="ref" value="'+esc(e.ref)+'">'+
+'<label>Prüfungsfach</label><select id="fach">'+opts(FACH,e.fach,"Bitte wählen")+'</select>'+
+'<label>Thema / Sachverhalt</label><input id="thema" value="'+esc(e.thema)+'" placeholder="z. B. Vorsteuerberichtigung § 15a UStG">'+
+'<label>Fehlerart</label><select id="art">'+opts(ART,e.art,"Bitte wählen")+'</select>'+
+'<div class="row"><div><label>Punkte verloren</label><input type="number" step="0.5" min="0" id="pts" value="'+esc(e.pts)+'"></div><div><label>Schweregrad</label><select id="sch">'+opts(SCH,e.sch)+'</select></div></div>'+
+'<p class="hint">Faustregel: Hoch = ab ca. 4 Punkte oder ganze Aufgabe falsch · Mittel = 2–3 · Gering = unter 2.</p>'+
+'<label>Was habe ich geschrieben / gemacht?</label><textarea id="fehler">'+esc(e.fehler)+'</textarea>'+
+'<label>Richtige Lösung (mit Norm/Rechtsgrundlage)</label><textarea id="loes">'+esc(e.loes)+'</textarea>'+
+'<label>Ursache – warum ist der Fehler passiert?</label><textarea id="ursache">'+esc(e.ursache)+'</textarea>'+
+'<label>Gegenmaßnahme – was mache ich künftig anders?</label><textarea id="massn">'+esc(e.massn)+'</textarea>'+
+'<div style="margin-top:14px;display:flex;gap:8px"><button class="p" onclick="save()">'+(editId?"Änderung speichern":"Speichern")+'</button>'+(editId?'<button onclick="go(\'list\')">Abbrechen</button>':'')+'</div></div>'}
+function save(){var g=function(i){return $("#"+i).value.trim()};
+if(!g("fach")||!g("art")||!g("thema")){alert("Bitte mindestens Fach, Thema und Fehlerart ausfüllen.");return}
+var o={date:g("date"),src:g("src"),ref:g("ref"),fach:g("fach"),thema:g("thema"),art:g("art"),pts:parseFloat(g("pts"))||0,sch:g("sch"),fehler:g("fehler"),loes:g("loes"),ursache:g("ursache"),massn:g("massn")};
+if(editId){E=E.map(function(x){return x.id==editId?Object.assign(x,o):x});editId=null}else{o.id=Date.now();o.ts=Date.now();o.rc=0;E.unshift(o)}
+sv();tab="list";draw()}
+function card(e,extra){return'<div class="card"><span class="pts">−'+esc(e.pts)+' P.</span><b>'+esc(e.thema)+'</b><div style="margin:4px 0 6px"><span class="tag">'+esc(e.fach)+'</span><span class="tag">'+esc(e.art)+'</span><span class="tag '+esc(e.sch)+'">'+esc(e.sch)+'</span></div><div class="k">'+fd(e.date)+' · '+esc(e.src)+(e.ref?' · '+esc(e.ref):'')+'</div>'+extra+'</div>'}
+function det(e){var r="";[["Mein Fehler",e.fehler],["Richtig",e.loes],["Ursache",e.ursache],["Gegenmaßnahme",e.massn]].forEach(function(p){if(p[1])r+='<div class="k">'+p[0]+'</div><div style="white-space:pre-wrap">'+esc(p[1])+'</div>'});return r}
+function vList(){var l=E.filter(function(e){return(!flt.f||e.fach==flt.f)&&(!flt.a||e.art==flt.a)&&(!flt.q||JSON.stringify(e).toLowerCase().indexOf(flt.q.toLowerCase())>-1)});
+var h='<div class="card"><div class="row"><div><select onchange="flt.f=this.value;redraw()">'+opts(FACH,flt.f,"Alle Fächer")+'</select></div><div><select onchange="flt.a=this.value;redraw()">'+opts(ART,flt.a,"Alle Fehlerarten")+'</select></div></div><input style="margin-top:8px" placeholder="Suchen …" value="'+esc(flt.q)+'" oninput="flt.q=this.value;clearTimeout(window.t);window.t=setTimeout(redraw,300)" id="q"></div>';
+if(!l.length)return h+'<div class="empty">'+(E.length?"Keine Treffer.":"Noch keine Einträge. Starte mit „＋ Neu“.")+'</div>';
+return h+l.map(function(e){return card(e,det(e)+'<div style="margin-top:10px;display:flex;gap:8px"><button class="s" onclick="ed('+e.id+')">Bearbeiten</button><button class="s" onclick="del('+e.id+')">Löschen</button></div>')}).join('')}
+function redraw(){var f=document.activeElement&&document.activeElement.id=="q";$("#v").innerHTML=vList();if(f){var q=$("#q");q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+function ed(id){editId=id;tab="neu";draw()}
+function del(id){if(confirm("Eintrag wirklich löschen?")){E=E.filter(function(x){return x.id!=id});sv();draw()}}
+function vRep(){var l=E.filter(isDue).sort(function(a,b){return dueAt(a)-dueAt(b)});
+var h='<p class="sub">Wiederholungsabstände: 1 · 7 · 21 · 60 · 120 Tage. Erst überlegen, dann die Lösung aufdecken.</p>';
+if(!l.length)return h+'<div class="empty">Nichts fällig – gut gemacht! 🎉</div>';
+return h+l.map(function(e){var s=shown[e.id];return card(e,(s?det(e)+'<div style="margin-top:10px;display:flex;gap:8px"><button class="p s" onclick="rev('+e.id+',1)">Sicher gewusst</button><button class="s" onclick="rev('+e.id+',0)">Noch unsicher</button></div>':'<div class="k">Wie lautet die richtige Lösung? Wie vermeidest du den Fehler?</div><div style="margin-top:10px"><button class="s" onclick="shown['+e.id+']=1;draw()">Lösung zeigen</button></div>'))}).join('')}
+function rev(id,ok){E.forEach(function(e){if(e.id==id){e.rc=ok?(e.rc||0)+1:0;e.last=Date.now()}});delete shown[id];sv();draw()}
+function grp(k,w){var m={};E.forEach(function(e){m[e[k]]=(m[e[k]]||0)+(w?e.pts:1)});return Object.keys(m).map(function(x){return[x,m[x]]}).sort(function(a,b){return b[1]-a[1]})}
+function bars(a,u){var mx=a.length?a[0][1]:1;return a.map(function(x){return'<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:.88rem"><span>'+esc(x[0])+'</span><span>'+x[1]+u+'</span></div><div class="bar"><i style="width:'+(mx?x[1]/mx*100:0)+'%"></i></div></div>'}).join('')}
+function vAus(){if(!E.length)return'<div class="empty">Noch keine Daten für eine Auswertung.</div>'+bk();
+var tot=E.reduce(function(s,e){return s+e.pts},0),f=grp("fach",1),a=grp("art",0),top=grp("fach",0)[0];
+var tip=a[0]?'Häufigste Fehlerart: <b>'+esc(a[0][0])+'</b> ('+a[0][1]+'×). '+(/Flüchtig|Rechen|gelesen/.test(a[0][0])?'Hier helfen feste Kontrollroutinen (Aufgabentext markieren, Schlussprobe, letzte 10 Min. für Durchsicht).':/Wissens|Verständnis/.test(a[0][0])?'Hier helfen gezieltes Nacharbeiten im Lehrbrief und Wiederholung mit Fallstudien.':/Zeit/.test(a[0][0])?'Übe unter Zeitdruck und setze Zeitlimits pro Aufgabe.':'Trainiere diese Technik gezielt an weiteren Fällen.'):"";
+return'<div class="stat"><div class="card"><b>'+E.length+'</b><span>Fehler</span></div><div class="card"><b>'+tot+'</b><span>Punkte verloren</span></div><div class="card"><b>'+E.filter(function(e){return(e.rc||0)>=5}).length+'</b><span>gefestigt</span></div></div>'+
+'<h2>Verlorene Punkte nach Fach</h2><div class="card">'+bars(f,' P.')+'</div><h2>Fehlerarten (Anzahl)</h2><div class="card">'+bars(a,'×')+'</div><h2>Schweregrad</h2><div class="card">'+bars(grp("sch",0),'×')+'</div>'+
+'<div class="card"><b>Fazit</b><div style="margin-top:4px">'+tip+'</div></div>'+bk()}
+function bk(){return'<h2>Sicherung</h2><div class="card"><p class="hint" style="margin-top:0">Die Daten liegen in diesem Browser. Sichere sie regelmäßig: Kopiere den Text und speichere ihn z. B. in einer Notiz. „Hinzufügen“ ergänzt neue Einträge (z. B. aus einem ausgewerteten Korrekturbogen), „Alles ersetzen“ stellt eine Sicherung wieder her.</p><textarea id="bk" style="min-height:60px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="s" onclick="ex()">Export anzeigen &amp; kopieren</button><button class="s" onclick="im(0)">Hinzufügen</button><button class="s" onclick="im(1)">Alles ersetzen</button></div></div>'}
+function ex(){var t=$("#bk");t.value=JSON.stringify(E);t.select();try{navigator.clipboard.writeText(t.value)}catch(x){}}
+function im(rp){try{var d=JSON.parse($("#bk").value);if(!Array.isArray(d))throw 0;if(rp){if(confirm(d.length+" Einträge importieren und aktuelle Daten ersetzen?")){E=d;sv();draw()}}else{var ids={};E.forEach(function(e){ids[e.id]=1});var n=0;d.forEach(function(e,i){if(!e.id)e.id=Date.now()+i;if(!e.ts)e.ts=Date.now();if(!e.rc)e.rc=0;if(!ids[e.id]){E.unshift(e);n++}});sv();alert(n+" Einträge hinzugefügt.");draw()}}catch(x){alert("Import nicht möglich – bitte den Text im vorgesehenen Format einfügen.")}}
+ld();draw();
+</script></body></html>
